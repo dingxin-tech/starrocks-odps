@@ -120,8 +120,8 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
         @SerializedName("HIVE_VIEW")
         HIVE_VIEW,
         @SerializedName("BLACKHOLE")
-        BLACKHOLE;
-        HIVE_VIEW,
+        BLACKHOLE,
+
         @SerializedName("ODPS")
         ODPS;
 
@@ -355,6 +355,10 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
         return type == TableType.PAIMON;
     }
 
+    public boolean isOdpsTable() {
+        return type == TableType.ODPS;
+    }
+
     public boolean isJDBCTable() {
         return type == TableType.JDBC;
     }
@@ -450,6 +454,8 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
             table = new IcebergTable();
         } else if (type == TableType.JDBC) {
             table = new JDBCTable();
+        }  else if (type == TableType.ODPS) {
+            table = new OdpsTable();
         } else if (type == TableType.MATERIALIZED_VIEW) {
             table = MaterializedView.read(in);
             table.setTypeRead(true);
