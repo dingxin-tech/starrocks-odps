@@ -295,12 +295,20 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
         return type == TableType.MATERIALIZED_VIEW;
     }
 
-    public boolean isView() {
+    public boolean isOlapView() {
         return type == TableType.VIEW;
     }
 
     public boolean isHiveView() {
         return type == TableType.HIVE_VIEW;
+    }
+
+    public boolean isView() {
+        return isOlapView() || isHiveView();
+    }
+
+    public boolean isBlackHoleTable() {
+        return type == TableType.BLACKHOLE;
     }
 
     public boolean isOlapTableOrMaterializedView() {
@@ -454,7 +462,7 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
             table = new IcebergTable();
         } else if (type == TableType.JDBC) {
             table = new JDBCTable();
-        }  else if (type == TableType.ODPS) {
+        } else if (type == TableType.ODPS) {
             table = new OdpsTable();
         } else if (type == TableType.MATERIALIZED_VIEW) {
             table = MaterializedView.read(in);
@@ -555,6 +563,10 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
     }
 
     public Partition getPartition(String partitionName) {
+        return null;
+    }
+
+    public Partition getPartition(String partitionName, boolean isTempPartition) {
         return null;
     }
 
