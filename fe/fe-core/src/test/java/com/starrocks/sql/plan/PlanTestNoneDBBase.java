@@ -28,11 +28,13 @@ import com.starrocks.catalog.Table;
 import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
 import com.starrocks.common.Pair;
+import com.starrocks.common.util.UUIDUtil;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.StmtExecutor;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.ast.StatementBase;
+import com.starrocks.sql.common.QueryDebugOptions;
 import com.starrocks.sql.optimizer.LogicalPlanPrinter;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.thrift.TExplainLevel;
@@ -42,6 +44,7 @@ import kotlin.text.Charsets;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.rules.ErrorCollector;
@@ -88,13 +91,46 @@ public class PlanTestNoneDBBase {
         connectContext = UtFrameUtils.createDefaultCtx();
         starRocksAssert = new StarRocksAssert(connectContext);
         connectContext.getSessionVariable().setOptimizerExecuteTimeout(30000);
+        connectContext.getSessionVariable().setUseLowCardinalityOptimizeV2(false);
         FeConstants.enablePruneEmptyOutputScan = false;
         FeConstants.showJoinLocalShuffleInExplain = false;
+    }
+
+    @Before
+    public void setUp() {
+        connectContext.setQueryId(UUIDUtil.genUUID());
+        connectContext.setExecutionId(UUIDUtil.toTUniqueId(connectContext.getQueryId()));
     }
 
     public static void assertContains(String text, String... pattern) {
         for (String s : pattern) {
             Assert.assertTrue(text, text.contains(s));
+        }
+    }
+
+    private static String ignoreColRefs(String s) {
+        // ignore colRef id
+        // eg:
+        //  |  predicates: 2: k2 LIKE 'a%'
+        // to
+        //  |  predicates: $: k2 LIKE 'a%'
+        String str = s.replaceAll("\\d+: ", "\\$ ");
+        // ignore predicate order
+        // |  predicates: 2: k2 LIKE 'a%' or 1: k1 > 1
+        // TODO: only reorder predicates rather than the whole line.
+        return Arrays.stream(StringUtils.split(str, " ,;")).sorted().collect(Collectors.joining(" "));
+    }
+
+    public static void assertContainsIgnoreColRefs(String text, String... pattern) {
+        String normT = Stream.of(text.split("\n"))
+                .map(str -> ignoreColRefs(str))
+                .collect(Collectors.joining("\n"));
+        for (String s : pattern) {
+            // If pattern contains multi lines, only check line by line.
+            for (String line : s.split("\n")) {
+                String normS = ignoreColRefs(line).trim();
+                Assert.assertTrue(text, normT.contains(normS));
+            }
         }
     }
 
@@ -125,6 +161,12 @@ public class PlanTestNoneDBBase {
         Assert.assertFalse(text, text.contains(pattern));
     }
 
+    public static void assertNotContains(String text, String... pattern) {
+        for (String s : pattern) {
+            Assert.assertFalse(text, text.contains(s));
+        }
+    }
+
     public static void setTableStatistics(OlapTable table, long rowCount) {
         for (Partition partition : table.getAllPartitions()) {
             partition.getBaseIndex().setRowCount(rowCount);
@@ -140,10 +182,14 @@ public class PlanTestNoneDBBase {
     }
 
     public ExecPlan getExecPlan(String sql) throws Exception {
+        connectContext.setQueryId(UUIDUtil.genUUID());
+        connectContext.setExecutionId(UUIDUtil.toTUniqueId(connectContext.getQueryId()));
         return UtFrameUtils.getPlanAndFragment(connectContext, sql).second;
     }
 
     public String getFragmentPlan(String sql) throws Exception {
+        connectContext.setQueryId(UUIDUtil.genUUID());
+        connectContext.setExecutionId(UUIDUtil.toTUniqueId(connectContext.getQueryId()));
         return UtFrameUtils.getPlanAndFragment(connectContext, sql).second.
                 getExplainString(TExplainLevel.NORMAL);
     }
@@ -575,13 +621,30 @@ public class PlanTestNoneDBBase {
     }
 
     private void checkWithIgnoreTabletListAndColRefIds(String expect, String actual) {
-        expect = Stream.of(expect.split("\n")).filter(s -> !s.contains("tabletList"))
+        QueryDebugOptions queryDebugOptions =
+                connectContext.getSessionVariable().getQueryDebugOptions();
+        boolean isNormalizePredicate =
+                queryDebugOptions.enableNormalizePredicateAfterMVRewrite;
+
+        String ignoreExpect = Stream.of(expect.split("\n"))
+                .filter(s -> !s.contains("tabletList"))
                 .map(str -> str.replaceAll("\\d+", "").trim())
+                .map(str -> {
+                    return isNormalizePredicate ?
+                            Arrays.stream(str.split("")).sorted().collect(Collectors.joining())
+                            : str;
+                })
                 .collect(Collectors.joining("\n"));
-        actual = Stream.of(actual.split("\n")).filter(s -> !s.contains("tabletList"))
+        String ignoreActual = Stream.of(actual.split("\n"))
+                .filter(s -> !s.contains("tabletList"))
                 .map(str -> str.replaceAll("\\d+", "").trim())
+                .map(str -> {
+                    return isNormalizePredicate ?
+                            Arrays.stream(str.split("")).sorted().collect(Collectors.joining())
+                            : str;
+                })
                 .collect(Collectors.joining("\n"));
-        Assert.assertEquals(expect, actual);
+        Assert.assertEquals(actual, ignoreExpect, ignoreActual);
     }
 
     protected void assertPlanContains(String sql, String... explain) throws Exception {
