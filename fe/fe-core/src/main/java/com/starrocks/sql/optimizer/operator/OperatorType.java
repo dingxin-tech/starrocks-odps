@@ -34,6 +34,7 @@ public enum OperatorType {
     LOGICAL_META_SCAN,
     LOGICAL_JDBC_SCAN,
     LOGICAL_BINLOG_SCAN,
+    LOGICAL_VIEW_SCAN,
     LOGICAL_TABLE_FUNCTION_TABLE_SCAN,
     LOGICAL_JOIN,
     LOGICAL_AGGR,
@@ -139,4 +140,5 @@ public enum OperatorType {
     //  /  \
     // table table
     PATTERN_MULTIJOIN,
+    DICTIONARY_GET
 }

@@ -164,8 +164,8 @@
         {
           "type": "category",
           "label": "Load from Object Storage",
-          "link": {"type": "doc", "id": "loading/s3"},
-          "items": ["loading/s3", "loading/gcs", "loading/cloud_storage_load"]
+          "link": {"type": "doc", "id": "loading/objectstorage"},
+          "items": ["loading/s3", "loading/gcs", "loading/minio", "loading/cloud_storage_load"]
         },
         "loading/StreamLoad",
         "loading/hdfs_load",
@@ -200,8 +200,9 @@
     {
       "type": "category",
       "label": "Data Unloading",
-      "link": {"type": "doc", "id": "unloading/Export"},
+      "link": {"type": "doc", "id": "unloading/unloading"},
       "items": [
+        "unloading/Export",
         "unloading/Spark_connector",
         "unloading/Flink_connector",
         "unloading/unload_using_insert_into_files"
@@ -212,6 +213,10 @@
       "label": "Query Data Lakes",
       "link": {"type": "doc", "id": "data_source/data_lakes"},
       "items": [
+        {
+          "type": "doc",
+          "id": "data_source/icebergtutorial"
+        },
         {
           "type": "category",
           "label": "Catalog",
@@ -328,7 +333,8 @@
           "items": [
             "administration/Scale_up_down",
             "administration/Backup_and_restore",
-            "administration/Configuration",
+            "administration/FE_configuration",
+            "administration/BE_configuration",
             "administration/Monitor_and_Alert",
             "administration/audit_loader",
             "administration/enable_fqdn",
@@ -912,7 +918,7 @@
         {
           "type": "category",
           "label": "从对象存储导入",
-          "link": {"type": "doc", "id": "loading/s3"},
+          "link": {"type": "doc", "id": "loading/objectstorage"},
           "items": ["loading/s3"]
         },
         "loading/StreamLoad",
@@ -949,8 +955,9 @@
     {
       "type": "category",
       "label": "导出数据",
-      "link": {"type": "doc", "id": "unloading/Export"},
+      "link": {"type": "doc", "id": "unloading/unloading"},
       "items": [
+        "unloading/Export",
         "unloading/Spark_connector",
         "unloading/Flink_connector",
         "unloading/unload_using_insert_into_files"
@@ -1077,7 +1084,8 @@
           "items": [
             "administration/Scale_up_down",
             "administration/Backup_and_restore",
-            "administration/Configuration",
+            "administration/FE_configuration",
+            "administration/BE_configuration",
             "administration/Monitor_and_Alert",
             "administration/audit_loader",
             "administration/enable_fqdn",
