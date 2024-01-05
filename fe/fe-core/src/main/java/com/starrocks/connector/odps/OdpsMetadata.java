@@ -338,7 +338,7 @@ public class OdpsMetadata implements ConnectorMetadata {
             }
         }
         try {
-            String predicateExpr = predicate.toString();
+            String predicateExpr = predicate != null ? predicate.toString() : "";
             LOG.info("get remote file infos, project:{}, table:{}, columns:{}, predicate: {}", odpsTable.getDbName(),
                     odpsTable.getTableName(), columnNames, predicateExpr);
             TableReadSessionBuilder tableReadSessionBuilder =
