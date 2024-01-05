@@ -24,6 +24,7 @@ import com.aliyun.odps.table.TableIdentifier;
 import com.aliyun.odps.table.configuration.SplitOptions;
 import com.aliyun.odps.table.enviroment.Credentials;
 import com.aliyun.odps.table.enviroment.EnvironmentSettings;
+import com.aliyun.odps.table.optimizer.predicate.RawPredicate;
 import com.aliyun.odps.table.read.TableBatchReadSession;
 import com.aliyun.odps.table.read.TableReadSessionBuilder;
 import com.aliyun.odps.table.read.split.InputSplit;
@@ -337,13 +338,17 @@ public class OdpsMetadata implements ConnectorMetadata {
             }
         }
         try {
-            LOG.info("get remote file infos, project:{}, table:{}, columns:{}", odpsTable.getDbName(),
-                    odpsTable.getTableName(), columnNames);
+            String predicateExpr = predicate.toString();
+            LOG.info("get remote file infos, project:{}, table:{}, columns:{}, predicate: {}", odpsTable.getDbName(),
+                    odpsTable.getTableName(), columnNames, predicateExpr);
             TableReadSessionBuilder tableReadSessionBuilder =
                     scanBuilder.identifier(TableIdentifier.of(odpsTable.getDbName(), odpsTable.getTableName()))
                             .withSettings(settings)
                             .requiredDataColumns(orderedColumnNames)
                             .requiredPartitions(partitionSpecs);
+            if (Boolean.parseBoolean(properties.get(OdpsProperties.ENABLE_PREDICATE_PUSHDOWN))) {
+                scanBuilder.withFilterPredicate(new RawPredicate(predicateExpr));
+            }
             OdpsSplitsInfo odpsSplitsInfo;
             switch (properties.get(OdpsProperties.SPLIT_POLICY)) {
                 case OdpsProperties.ROW_OFFSET:
