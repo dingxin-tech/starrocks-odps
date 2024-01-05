@@ -15,6 +15,10 @@
 package com.starrocks.connector.odps;
 
 import com.aliyun.odps.TableSchema;
+import com.aliyun.odps.table.optimizer.predicate.CompoundPredicate;
+import com.aliyun.odps.table.optimizer.predicate.Predicate;
+import com.aliyun.odps.table.optimizer.predicate.RawPredicate;
+import com.aliyun.odps.table.optimizer.predicate.UnaryPredicate;
 import com.aliyun.odps.type.ArrayTypeInfo;
 import com.aliyun.odps.type.CharTypeInfo;
 import com.aliyun.odps.type.DecimalTypeInfo;
@@ -28,6 +32,12 @@ import com.starrocks.catalog.MapType;
 import com.starrocks.catalog.ScalarType;
 import com.starrocks.catalog.StructType;
 import com.starrocks.catalog.Type;
+import com.starrocks.sql.optimizer.operator.scalar.BinaryPredicateOperator;
+import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
+import com.starrocks.sql.optimizer.operator.scalar.CompoundPredicateOperator;
+import com.starrocks.sql.optimizer.operator.scalar.ConstantOperator;
+import com.starrocks.sql.optimizer.operator.scalar.IsNullPredicateOperator;
+import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,5 +108,40 @@ public class EntityConvertUtils {
         columns.addAll(tableSchema.getPartitionColumns());
         return columns.stream().map(EntityConvertUtils::convertColumn).collect(
                 Collectors.toList());
+    }
+
+    public static Predicate convertPredicate(ScalarOperator predicate) {
+        if (predicate instanceof BinaryPredicateOperator) {
+            BinaryPredicateOperator binaryPredicateOperator = (BinaryPredicateOperator) predicate;
+            return new RawPredicate(convertPredicate(binaryPredicateOperator.getChild(0)) +
+                    binaryPredicateOperator.getBinaryType().toString() +
+                    convertPredicate(binaryPredicateOperator.getChild(0)));
+        } else if (predicate instanceof ColumnRefOperator) {
+            return new RawPredicate(((ColumnRefOperator) predicate).getName());
+        } else if (predicate instanceof ConstantOperator) {
+            return new RawPredicate(predicate.toString());
+        } else if (predicate instanceof CompoundPredicateOperator) {
+            CompoundPredicate compoundPredicate;
+            switch (((CompoundPredicateOperator) predicate).getCompoundType()) {
+                case AND:
+                    compoundPredicate = new CompoundPredicate(CompoundPredicate.Operator.AND);
+                    break;
+                case OR:
+                    compoundPredicate = new CompoundPredicate(CompoundPredicate.Operator.OR);
+                    break;
+                case NOT:
+                default:
+                    return Predicate.NO_PREDICATE;
+            }
+            for (ScalarOperator child : predicate.getChildren()) {
+                compoundPredicate.addPredicate(convertPredicate(child));
+            }
+        } else if (predicate instanceof IsNullPredicateOperator) {
+            return new UnaryPredicate(
+                    ((IsNullPredicateOperator) predicate).isNotNull() ? UnaryPredicate.Operator.NOT_NULL :
+                            UnaryPredicate.Operator.IS_NULL, convertPredicate(predicate.getChild(0)));
+        } else {
+            return Predicate.NO_PREDICATE;
+        }
     }
 }
