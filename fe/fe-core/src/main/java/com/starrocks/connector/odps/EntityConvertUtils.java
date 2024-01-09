@@ -115,7 +115,7 @@ public class EntityConvertUtils {
             BinaryPredicateOperator binaryPredicateOperator = (BinaryPredicateOperator) predicate;
             return new RawPredicate(convertPredicate(binaryPredicateOperator.getChild(0)) +
                     binaryPredicateOperator.getBinaryType().toString() +
-                    convertPredicate(binaryPredicateOperator.getChild(0)));
+                    convertPredicate(binaryPredicateOperator.getChild(1)));
         } else if (predicate instanceof ColumnRefOperator) {
             return new RawPredicate(((ColumnRefOperator) predicate).getName());
         } else if (predicate instanceof ConstantOperator) {
