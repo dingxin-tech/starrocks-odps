@@ -25,7 +25,6 @@ import com.aliyun.odps.table.configuration.SplitOptions;
 import com.aliyun.odps.table.enviroment.Credentials;
 import com.aliyun.odps.table.enviroment.EnvironmentSettings;
 import com.aliyun.odps.table.optimizer.predicate.Predicate;
-import com.aliyun.odps.table.optimizer.predicate.RawPredicate;
 import com.aliyun.odps.table.read.TableBatchReadSession;
 import com.aliyun.odps.table.read.TableReadSessionBuilder;
 import com.aliyun.odps.table.read.split.InputSplit;
