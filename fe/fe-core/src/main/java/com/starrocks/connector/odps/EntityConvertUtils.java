@@ -136,6 +136,7 @@ public class EntityConvertUtils {
             for (ScalarOperator child : predicate.getChildren()) {
                 compoundPredicate.addPredicate(convertPredicate(child));
             }
+            return compoundPredicate;
         } else if (predicate instanceof IsNullPredicateOperator) {
             return new UnaryPredicate(
                     ((IsNullPredicateOperator) predicate).isNotNull() ? UnaryPredicate.Operator.NOT_NULL :
