@@ -130,6 +130,8 @@ public class EntityConvertUtils {
                     compoundPredicate = new CompoundPredicate(CompoundPredicate.Operator.OR);
                     break;
                 case NOT:
+                    compoundPredicate = new CompoundPredicate(CompoundPredicate.Operator.NOT);
+                    break;
                 default:
                     return Predicate.NO_PREDICATE;
             }
