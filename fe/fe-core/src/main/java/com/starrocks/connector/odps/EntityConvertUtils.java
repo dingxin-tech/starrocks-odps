@@ -16,6 +16,7 @@ package com.starrocks.connector.odps;
 
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.table.optimizer.predicate.CompoundPredicate;
+import com.aliyun.odps.table.optimizer.predicate.InPredicate;
 import com.aliyun.odps.table.optimizer.predicate.Predicate;
 import com.aliyun.odps.table.optimizer.predicate.RawPredicate;
 import com.aliyun.odps.table.optimizer.predicate.UnaryPredicate;
@@ -26,6 +27,7 @@ import com.aliyun.odps.type.MapTypeInfo;
 import com.aliyun.odps.type.StructTypeInfo;
 import com.aliyun.odps.type.TypeInfo;
 import com.aliyun.odps.type.VarcharTypeInfo;
+import com.aliyun.odps.utils.StringUtils;
 import com.starrocks.catalog.ArrayType;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.MapType;
@@ -36,6 +38,7 @@ import com.starrocks.sql.optimizer.operator.scalar.BinaryPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.sql.optimizer.operator.scalar.CompoundPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ConstantOperator;
+import com.starrocks.sql.optimizer.operator.scalar.InPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.IsNullPredicateOperator;
 import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 
@@ -140,13 +143,29 @@ public class EntityConvertUtils {
                     return Predicate.NO_PREDICATE;
             }
             for (ScalarOperator child : predicate.getChildren()) {
-                compoundPredicate.addPredicate(convertPredicate(child));
+                Predicate childPredicate = convertPredicate(child);
+                if (childPredicate.equals(Predicate.NO_PREDICATE)) {
+                    continue;
+                }
+                compoundPredicate.addPredicate(childPredicate);
             }
             return compoundPredicate;
         } else if (predicate instanceof IsNullPredicateOperator) {
             return new UnaryPredicate(
                     ((IsNullPredicateOperator) predicate).isNotNull() ? UnaryPredicate.Operator.NOT_NULL :
                             UnaryPredicate.Operator.IS_NULL, convertPredicate(predicate.getChild(0)));
+        } else if (predicate instanceof InPredicateOperator) {
+            InPredicateOperator inPredicateOperator = (InPredicateOperator) predicate;
+            ScalarOperator operand = inPredicateOperator.getChild(0);
+            List<Object> set =
+                    inPredicateOperator.getListChildren().stream().map(EntityConvertUtils::convertPredicate).filter(
+                                    s -> !StringUtils.isNullOrEmpty(s.toString()))
+                            .collect(Collectors.toList());
+            if (inPredicateOperator.isNotIn()) {
+                return new InPredicate(InPredicate.Operator.NOT_IN, operand, set);
+            } else {
+                return new InPredicate(InPredicate.Operator.IN, operand, set);
+            }
         } else {
             return Predicate.NO_PREDICATE;
         }
