@@ -156,7 +156,7 @@ public class EntityConvertUtils {
                             UnaryPredicate.Operator.IS_NULL, convertPredicate(predicate.getChild(0)));
         } else if (predicate instanceof InPredicateOperator) {
             InPredicateOperator inPredicateOperator = (InPredicateOperator) predicate;
-            ScalarOperator operand = inPredicateOperator.getChild(0);
+            Predicate operand = convertPredicate(inPredicateOperator.getChild(0));
             List<Object> set =
                     inPredicateOperator.getListChildren().stream().map(EntityConvertUtils::convertPredicate).filter(
                                     s -> !StringUtils.isNullOrEmpty(s.toString()))
