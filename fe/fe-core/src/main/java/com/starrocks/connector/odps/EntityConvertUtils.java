@@ -122,8 +122,7 @@ public class EntityConvertUtils {
         } else if (predicate instanceof ColumnRefOperator) {
             return new RawPredicate(((ColumnRefOperator) predicate).getName());
         } else if (predicate instanceof ConstantOperator) {
-            if (predicate.getType().isStringType() || predicate.getType().isChar() ||
-                    predicate.getType().isVarchar()) {
+            if (predicate.getType().isStringType() || predicate.getType().isDateType()) {
                 return new RawPredicate("'" + predicate + "'");
             }
             return new RawPredicate(predicate.toString());
