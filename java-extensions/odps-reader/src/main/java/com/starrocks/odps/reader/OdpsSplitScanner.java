@@ -66,6 +66,7 @@ public class OdpsSplitScanner extends ConnectorScanner {
     private final TableBatchReadSession scan;
     private SplitReader<VectorSchemaRoot> reader;
     private Map<String, Integer> nameIndexMap;
+    private long scanSize;
 
     public OdpsSplitScanner(int fetchSize, Map<String, String> params) {
         this.fetchSize = fetchSize;
@@ -141,6 +142,7 @@ public class OdpsSplitScanner extends ConnectorScanner {
             if (reader != null) {
                 reader.close();
             }
+            LOG.info("current scanner scan {} rows ", scanSize);
         } catch (Exception e) {
             String msg = "Failed to close the odps reader.";
             LOG.error(msg, e);
@@ -182,6 +184,7 @@ public class OdpsSplitScanner extends ConnectorScanner {
                         }
                     }
                 }
+                scanSize += vectorSchemaRoot.getRowCount();
                 return vectorSchemaRoot.getRowCount();
             }
             return 0;

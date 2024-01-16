@@ -319,6 +319,7 @@ public class OdpsMetadata implements ConnectorMetadata {
                                                    long snapshotId, ScalarOperator predicate,
                                                    List<String> columnNames, long limit,
                                                    TableReadSessionBuilder scanBuilder) {
+        long start = System.currentTimeMillis();
         RemoteFileInfo remoteFileInfo = new RemoteFileInfo();
         OdpsTable odpsTable = (OdpsTable) table;
         Set<String> set = new HashSet<>(columnNames);
@@ -364,6 +365,9 @@ public class OdpsMetadata implements ConnectorMetadata {
             RemoteFileDesc odpsRemoteFileDesc = RemoteFileDesc.createOdpsRemoteFileDesc(odpsSplitsInfo);
             List<RemoteFileDesc> remoteFileDescs = ImmutableList.of(odpsRemoteFileDesc);
             remoteFileInfo.setFiles(remoteFileDescs);
+
+            LOG.info("get remote file info cost: {} ms, split nums: {}", System.currentTimeMillis() - start,
+                    odpsSplitsInfo.getSplits().size());
             return Lists.newArrayList(remoteFileInfo);
         } catch (Exception e) {
             LOG.error("getRemoteFileInfos error", e);
