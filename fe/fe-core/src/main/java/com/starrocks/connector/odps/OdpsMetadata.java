@@ -368,9 +368,7 @@ public class OdpsMetadata implements ConnectorMetadata {
 
     private OdpsSplitsInfo callSizeSplitsInfo(TableReadSessionBuilder tableReadSessionBuilder)
             throws IOException {
-        Map<String, String> splitProperties = new HashMap<>();
-        splitProperties.put("tunnel_endpoint", properties.get(OdpsProperties.TUNNEL_ENDPOINT));
-        splitProperties.put("quota_name", properties.get(OdpsProperties.TUNNEL_QUOTA));
+        Map<String, String> splitProperties = getCommonSplitProperties();
         OdpsSplitsInfo odpsSplitsInfo;
         TableBatchReadSession sizeScan = tableReadSessionBuilder
                 .withSplitOptions(SplitOptions.createDefault())
@@ -383,9 +381,7 @@ public class OdpsMetadata implements ConnectorMetadata {
 
     private OdpsSplitsInfo callRowOffsetSplitsInfo(TableReadSessionBuilder tableReadSessionBuilder, long limit)
             throws IOException {
-        Map<String, String> splitProperties = new HashMap<>();
-        splitProperties.put("tunnel_endpoint", properties.get(OdpsProperties.TUNNEL_ENDPOINT));
-        splitProperties.put("quota_name", properties.get(OdpsProperties.TUNNEL_QUOTA));
+        Map<String, String> splitProperties = getCommonSplitProperties();
         OdpsSplitsInfo odpsSplitsInfo;
         List<InputSplit> splits = new ArrayList<>();
         TableBatchReadSession rowScan = tableReadSessionBuilder
@@ -411,6 +407,14 @@ public class OdpsMetadata implements ConnectorMetadata {
         odpsSplitsInfo = new OdpsSplitsInfo(splits, rowScan,
                 OdpsSplitsInfo.SplitPolicy.ROW_OFFSET, splitProperties);
         return odpsSplitsInfo;
+    }
+
+    private Map<String, String> getCommonSplitProperties() {
+        Map<String, String> splitProperties = new HashMap<>();
+        splitProperties.put("tunnel_endpoint", properties.get(OdpsProperties.TUNNEL_ENDPOINT));
+        splitProperties.put("quota_name", properties.get(OdpsProperties.TUNNEL_QUOTA));
+        splitProperties.put("buffered_read", properties.get(OdpsProperties.ENABLE_BUFFERED_SCAN));
+        return splitProperties;
     }
 
     @Override

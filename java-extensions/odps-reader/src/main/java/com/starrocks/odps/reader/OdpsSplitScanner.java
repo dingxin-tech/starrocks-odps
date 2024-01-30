@@ -36,6 +36,7 @@ import com.starrocks.utils.loader.ThreadContextClassLoader;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.commons.lang.BooleanUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -47,6 +48,11 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class OdpsSplitScanner extends ConnectorScanner {
@@ -66,6 +72,9 @@ public class OdpsSplitScanner extends ConnectorScanner {
     private final TableBatchReadSession scan;
     private SplitReader<VectorSchemaRoot> reader;
     private Map<String, Integer> nameIndexMap;
+    private final boolean bufferedRead;
+    private Queue<VectorSchemaRoot> asyncDataQueue;
+    private Future<?> future;
 
     private final String timezone;
 
@@ -74,6 +83,8 @@ public class OdpsSplitScanner extends ConnectorScanner {
         this.projectName = params.get("project_name");
         this.tableName = params.get("table_name");
         this.requiredFields = params.get("required_fields").split(",");
+        this.bufferedRead = BooleanUtils.toBoolean(params.get("buffered_read"));
+
         String splitPolicy = params.get("split_policy");
         String sessionId = params.get("session_id");
         switch (splitPolicy) {
@@ -128,8 +139,27 @@ public class OdpsSplitScanner extends ConnectorScanner {
             reader = scan.createArrowReader(this.inputSplit,
                     ReaderOptions.newBuilder().withMaxBatchRowCount(fetchSize)
                             .withCompressionCodec(CompressionCodec.ZSTD)
+                            .withReuseBatch(!bufferedRead)
                             .withSettings(settings).build());
             initOffHeapTableWriter(requiredTypes, requiredFields, fetchSize);
+
+            if (bufferedRead) {
+                asyncDataQueue = new LinkedBlockingQueue<>();
+                ExecutorService asyncScanThread = Executors.newSingleThreadExecutor();
+                this.future = asyncScanThread.submit(() -> {
+                    while (true) {
+                        try {
+                            if (!reader.hasNext()) {
+                                break;
+                            }
+                            VectorSchemaRoot vectorSchemaRoot = reader.get();
+                            asyncDataQueue.add(vectorSchemaRoot);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+            }
         } catch (Exception e) {
             close();
             String msg = "Failed to open the odps reader.";
@@ -151,6 +181,26 @@ public class OdpsSplitScanner extends ConnectorScanner {
         }
     }
 
+    public boolean hasNext() throws Exception {
+        if (bufferedRead) {
+            if (asyncDataQueue.isEmpty()) {
+                future.get();
+                return !asyncDataQueue.isEmpty();
+            }
+            return true;
+        } else {
+            return reader.hasNext();
+        }
+    }
+
+    public VectorSchemaRoot getNextVectorSchemaRoot() {
+        if (bufferedRead) {
+            return asyncDataQueue.poll();
+        } else {
+            return reader.get();
+        }
+    }
+
     // because of fe must reorder the column name, so the data's order are different from requiredFields
     // we make data is right order
     // right order: fieldVectors, columnAccessors
@@ -159,8 +209,8 @@ public class OdpsSplitScanner extends ConnectorScanner {
     @Override
     public int getNext() throws IOException {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            if (reader.hasNext()) {
-                VectorSchemaRoot vectorSchemaRoot = reader.get();
+            if (hasNext()) {
+                VectorSchemaRoot vectorSchemaRoot = getNextVectorSchemaRoot();
                 List<FieldVector> fieldVectors = vectorSchemaRoot.getFieldVectors();
                 ArrowVectorAccessor[] columnAccessors = new ArrowVectorAccessor[requireColumns.length];
                 List<Field> fields = vectorSchemaRoot.getSchema().getFields();
@@ -181,7 +231,8 @@ public class OdpsSplitScanner extends ConnectorScanner {
                         if (data == null) {
                             appendData(fieldIndex, null);
                         } else {
-                            appendData(fieldIndex, new OdpsColumnValue(data, requireColumns[fieldIndex].getTypeInfo(), timezone));
+                            appendData(fieldIndex,
+                                    new OdpsColumnValue(data, requireColumns[fieldIndex].getTypeInfo(), timezone));
                         }
                     }
                 }
@@ -202,10 +253,8 @@ public class OdpsSplitScanner extends ConnectorScanner {
         sb.append("projectName: ");
         sb.append(projectName);
         sb.append("\n");
-        sb.append("\n");
         sb.append("tableName: ");
         sb.append(tableName);
-        sb.append("\n");
         sb.append("\n");
         sb.append("requiredFields: ");
         sb.append(Arrays.toString(requiredFields));
@@ -213,6 +262,11 @@ public class OdpsSplitScanner extends ConnectorScanner {
         sb.append("fetchSize: ");
         sb.append(fetchSize);
         sb.append("\n");
+        sb.append("endpoint: ");
+        sb.append(endpoint);
+        sb.append("\n");
+        sb.append("bufferedRead: ");
+        sb.append(bufferedRead);
         return sb.toString();
     }
 
