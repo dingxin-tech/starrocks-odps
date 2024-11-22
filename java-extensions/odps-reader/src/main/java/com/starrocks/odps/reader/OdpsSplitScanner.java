@@ -218,9 +218,11 @@ public class OdpsSplitScanner extends ConnectorScanner {
     }
 
     private static Object deserialize(String serializedString) throws IOException, ClassNotFoundException {
-        byte[] serializedBytes = Base64.getDecoder().decode(serializedString);
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(serializedBytes);
-        ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
-        return objectInputStream.readObject();
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            byte[] serializedBytes = Base64.getDecoder().decode(serializedString);
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(serializedBytes);
+            ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+            return objectInputStream.readObject();
+        }
     }
 }
