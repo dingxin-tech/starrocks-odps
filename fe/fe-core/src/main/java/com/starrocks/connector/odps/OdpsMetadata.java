@@ -85,7 +85,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.starrocks.connector.PartitionUtil.toHivePartitionName;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OdpsMetadata implements ConnectorMetadata {
