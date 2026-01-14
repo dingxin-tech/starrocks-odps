@@ -95,6 +95,12 @@ public class OdpsProperties {
                 throw new IllegalArgumentException("Missing " + value + " in properties");
             }
         }
+        String endpoint = properties.get(ENDPOINT);
+        if (endpoint.contains("maxcompute.aliyun.com/api")) {
+            throw new IllegalArgumentException(String.format("Public endpoint '%s' is not supported, please use VPC endpoint like '%s' instead.",
+                    endpoint, endpoint.replace("maxcompute.aliyun.com/api", "-vpc.maxcompute.aliyun-inc.com/api")
+            ));
+        }
     }
 
     static class Property {
