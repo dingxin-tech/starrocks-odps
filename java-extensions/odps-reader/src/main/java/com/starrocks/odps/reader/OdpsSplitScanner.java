@@ -61,7 +61,7 @@ public class OdpsSplitScanner extends ConnectorScanner {
     private final String tableName;
     private final String endpoint;
     private final InputSplit inputSplit;
-    private final String[] requiredFields;
+    private String[] requiredFields;
     private final Column[] requireColumns;
     private final ColumnType[] requiredTypes;
     private final int fetchSize;
@@ -81,6 +81,8 @@ public class OdpsSplitScanner extends ConnectorScanner {
         this.projectName = params.get("project_name");
         this.tableName = params.get("table_name");
         this.requiredFields = ScannerHelper.splitAndOmitEmptyStrings(params.get("required_fields"), ",");
+
+        LOG.info("requiredFields: {}", Arrays.toString(requiredFields));
 
         this.scan = new TableReadSessionBuilder().fromJson(params.get("read_session")).buildBatchReadSession();
         String splitPolicy = params.get("split_policy");
@@ -108,6 +110,10 @@ public class OdpsSplitScanner extends ConnectorScanner {
 
         Map<String, Column> nameColumnMap = scan.readSchema().getColumns().stream()
                 .collect(Collectors.toMap(Column::getName, o -> o));
+        if (requiredFields.length == 0) {
+            requiredFields = new String[1];
+            requiredFields[0] = scan.readSchema().getColumn(0).get().getName();
+        }
         requireColumns = new Column[requiredFields.length];
         requiredTypes = new ColumnType[requiredFields.length];
         nameIndexMap = new HashMap<>();
