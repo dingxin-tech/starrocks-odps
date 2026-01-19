@@ -53,6 +53,8 @@ import com.starrocks.connector.GetRemoteFilesParams;
 import com.starrocks.connector.PartitionInfo;
 import com.starrocks.connector.RemoteFileDesc;
 import com.starrocks.connector.RemoteFileInfo;
+import com.starrocks.connector.RemoteFileInfoDefaultSource;
+import com.starrocks.connector.RemoteFileInfoSource;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.credential.CloudConfiguration;
 import com.starrocks.credential.aliyun.AliyunCloudConfiguration;
@@ -79,6 +81,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
@@ -93,6 +96,7 @@ public class OdpsMetadata implements ConnectorMetadata {
     private final EnvironmentSettings settings;
     private final AliyunCloudCredential aliyunCloudCredential;
     private final OdpsProperties properties;
+    private final ExecutorService pullRemoteFileExecutor;
 
     private String catalogOwner;
     private LoadingCache<String, Set<String>> tableNameCache;
@@ -103,10 +107,16 @@ public class OdpsMetadata implements ConnectorMetadata {
 
     public OdpsMetadata(Odps odps, String catalogName, AliyunCloudCredential aliyunCloudCredential,
                         OdpsProperties properties) {
+        this(odps, catalogName, aliyunCloudCredential, properties, null);
+    }
+
+    public OdpsMetadata(Odps odps, String catalogName, AliyunCloudCredential aliyunCloudCredential,
+                        OdpsProperties properties, ExecutorService pullRemoteFileExecutor) {
         this.odps = odps;
         this.catalogName = catalogName;
         this.aliyunCloudCredential = aliyunCloudCredential;
         this.properties = properties;
+        this.pullRemoteFileExecutor = pullRemoteFileExecutor;
         EnvironmentSettings.Builder settingsBuilder =
                 EnvironmentSettings.newBuilder().withServiceEndpoint(odps.getEndpoint())
                         .withCredentials(Credentials.newBuilder().withAccount(odps.getAccount()).build())
@@ -330,6 +340,19 @@ public class OdpsMetadata implements ConnectorMetadata {
     public List<RemoteFileInfo> getRemoteFiles(Table table, GetRemoteFilesParams params) {
         // add scanBuilder param for mock
         return getRemoteFiles(table, params, new TableReadSessionBuilder());
+    }
+
+    @Override
+    public RemoteFileInfoSource getRemoteFilesAsync(Table table, GetRemoteFilesParams params) {
+        if (pullRemoteFileExecutor == null) {
+            List<RemoteFileInfo> fileInfos = getRemoteFiles(table, params);
+            return new RemoteFileInfoDefaultSource(fileInfos);
+        }
+
+        OdpsAsyncRemoteInfoSource remoteInfoSource = new OdpsAsyncRemoteInfoSource(
+                pullRemoteFileExecutor, table, params, this);
+        remoteInfoSource.run();
+        return remoteInfoSource;
     }
 
     public List<RemoteFileInfo> getRemoteFiles(Table table, GetRemoteFilesParams params,
