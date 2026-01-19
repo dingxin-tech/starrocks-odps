@@ -84,11 +84,11 @@ public class OdpsScanNode extends ScanNode {
     }
 
     public void setupScanRangeLocations(TupleDescriptor tupleDescriptor, ScalarOperator predicate,
-                                        List<PartitionKey> partitionKeys) {
+                                        List<PartitionKey> partitionKeys, long limit) {
         List<String> fieldNames =
                 tupleDescriptor.getSlots().stream().map(s -> s.getColumn().getName()).collect(Collectors.toList());
         GetRemoteFilesParams params = GetRemoteFilesParams.newBuilder().setPartitionKeys(partitionKeys).setPredicate(predicate)
-                .setFieldNames(fieldNames).build();
+                .setFieldNames(fieldNames).setLimit(limit).build();
         List<RemoteFileInfo> fileInfos = GlobalStateMgr.getCurrentState().getMetadataMgr().getRemoteFiles(table, params);
         OdpsRemoteFileDesc remoteFileDesc = (OdpsRemoteFileDesc) fileInfos.get(0).getFiles().get(0);
         OdpsSplitsInfo splitsInfo = remoteFileDesc.getOdpsSplitsInfo();
