@@ -399,6 +399,9 @@ arrow::Result<int64_t> ParquetChunkFile::ReadAt(int64_t position, int64_t nbytes
     ++_counter->file_read_count;
     SCOPED_RAW_TIMER(&_counter->file_read_ns);
     auto status = _file->read_at_fully(position, out, nbytes);
+    if (status.ok()) {
+        _counter->file_read_bytes += nbytes;
+    }
     return status.ok()
                    ? nbytes
                    : arrow::Result<int64_t>(arrow::Status(arrow::StatusCode::IOError, std::string(status.message())));

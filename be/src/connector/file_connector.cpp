@@ -121,6 +121,14 @@ void FileDataSource::close(RuntimeState* state) {
     if (_scanner != nullptr) {
         _scanner->close();
     }
+
+    if (_counter.file_read_ns > 0 && _counter.file_read_bytes > 0) {
+        double speed_mbps = (_counter.file_read_bytes / 1024.0 / 1024.0) / (_counter.file_read_ns / 1e9);
+        LOG(INFO) << "OSS file download speed: " << speed_mbps << " MB/s, "
+                  << "total bytes: " << _counter.file_read_bytes << ", "
+                  << "total time: " << _counter.file_read_ns / 1e9 << "s, "
+                  << "file path: " << _scan_range.ranges[0].path;
+    }
 }
 
 Status FileDataSource::get_next(RuntimeState* state, ChunkPtr* chunk) {
@@ -196,6 +204,7 @@ void FileDataSource::_init_counter() {
         _scanner_init_chunk_timer = ADD_CHILD_TIMER(p, "CreateChunkTime", prefix);
         _scanner_file_reader_timer = ADD_CHILD_TIMER(p, "FileReadTime", prefix);
         _scanner_file_read_count = ADD_CHILD_COUNTER(p, "FileReadCount", TUnit::UNIT, prefix);
+        _scanner_file_read_bytes = ADD_CHILD_COUNTER(p, "FileReadBytes", TUnit::BYTES, prefix);
     }
 }
 
@@ -211,6 +220,7 @@ void FileDataSource::_update_counter() {
     COUNTER_UPDATE(_scanner_init_chunk_timer, _counter.init_chunk_ns);
     COUNTER_UPDATE(_scanner_file_reader_timer, _counter.file_read_ns);
     COUNTER_UPDATE(_scanner_file_read_count, _counter.file_read_count);
+    COUNTER_UPDATE(_scanner_file_read_bytes, _counter.file_read_bytes);
 }
 
 } // namespace starrocks::connector
